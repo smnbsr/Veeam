@@ -1,0 +1,32 @@
+### Mail Configuration Infos
+$username="AuthUser"
+$password= "Password"
+$secpass= ConvertTo-SecureString $password -AsPlainText -Force
+$mycred= New-Object System.Management.Automation.PSCredential ($username,$secpass)
+$sendEmail = "yes"
+$fromAddress = "SenderAddress"
+$recipients = "ReceipentAddress"
+$message = "Veeam Yedekleme Jobları Bilgilendirme."
+$smtpServer = "SMTPServer"
+
+
+
+# How many backup fail, how many backup sucess 
+$vbrJobs = Get-VBRJob | Sort-Object typetostring,name
+$vbrSessions = Get-VBRBackupSession | Where-Object {$_.JobType -eq "Backup" -and $_.EndTime -ge (Get-Date).addhours(-16)}
+$output=foreach ($session in $vbrsessions) {$session.gettasksessions()| Select Name, Jobname, Status }  Select -First 1
+$output |Out-File -FilePath C:\temp\VMReport.txt
+$successContent= Get-Content -Path C:\temp\VMReport.txt
+$success= Select-String -InputObject $successContent -Pattern "Success" -AllMatches
+$numofsuccess=$success.Matches.Count
+$failContent= Get-Content -Path C:\temp\VMReport.txt
+$fail= Select-String -InputObject $failContent -Pattern "Failed" -AllMatches
+$numoffail=$fail.Matches.Count
+
+
+
+# Send Mail
+if ($sendEmail -eq "yes") {
+
+    Send-MailMessage -from $fromAddress -to $recipients -subject "Veeam VM Backup Report(Success:$numofsuccess , Failed:$numoffail)" -Credential $mycred -priority normal -smtpServer $smtpServer
+}
